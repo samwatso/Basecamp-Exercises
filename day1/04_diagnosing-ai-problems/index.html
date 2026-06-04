@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meridian Support Agent · Tune-Up</title>
+<style>
+  :root{
+    --bg:#070b13; --bg2:#10172552; --card:#141c2bcc; --card2:#1a2436;
+    --ink:#e8edf5; --muted:#8b9bb4; --line:#26334a;
+    --bad:#ff5d73; --badbg:#2a1620; --good:#3ddc97; --goodbg:#10241d;
+    --warn:#ffc857; --accent:#7c8cff; --accent2:#43e3ff;
+    --shadow:0 14px 40px rgba(0,0,0,.45);
+    --r:18px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--ink);overflow-x:hidden;
+    font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  /* animated aurora blobs */
+  .aurora{position:fixed;inset:0;z-index:-3;overflow:hidden;pointer-events:none}
+  .aurora i{position:absolute;border-radius:50%;filter:blur(80px);opacity:.5;mix-blend-mode:screen}
+  .aurora i:nth-child(1){width:520px;height:520px;background:#3a4cff;top:-120px;left:-80px;animation:drift1 18s ease-in-out infinite}
+  .aurora i:nth-child(2){width:460px;height:460px;background:#16d6ff;top:30%;right:-120px;animation:drift2 22s ease-in-out infinite}
+  .aurora i:nth-child(3){width:400px;height:400px;background:#7c2dff;bottom:-140px;left:30%;animation:drift3 26s ease-in-out infinite}
+  @keyframes drift1{50%{transform:translate(120px,80px) scale(1.15)}}
+  @keyframes drift2{50%{transform:translate(-100px,120px) scale(1.1)}}
+  @keyframes drift3{50%{transform:translate(80px,-90px) scale(1.2)}}
+  #net{position:fixed;inset:0;z-index:-2;pointer-events:none}
+
+  .wrap{max-width:1060px;margin:0 auto;padding:0 22px 90px;position:relative}
+  code,.mono{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;font-size:.86em}
+
+  /* scroll reveal */
+  .reveal{opacity:0;transform:translateY(38px);transition:opacity .7s cubic-bezier(.2,.7,.2,1),transform .7s cubic-bezier(.2,.7,.2,1)}
+  .reveal.in{opacity:1;transform:none}
+
+  /* HERO */
+  header.hero{padding:84px 0 30px;text-align:center;position:relative}
+  .kicker{font-size:13px;letter-spacing:.22em;text-transform:uppercase;color:var(--accent2);font-weight:700}
+  h1{font-size:clamp(34px,6.4vw,62px);line-height:1.02;margin:14px 0 10px;font-weight:800;letter-spacing:-.02em;
+     background:linear-gradient(110deg,#fff 0%,var(--accent) 40%,var(--accent2) 60%,#fff 100%);
+     background-size:250% auto;-webkit-background-clip:text;background-clip:text;color:transparent;
+     animation:shimmer 6s linear infinite}
+  @keyframes shimmer{to{background-position:250% center}}
+  .sub{color:var(--muted);max-width:620px;margin:0 auto;font-size:18px}
+  .statbar{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:34px;perspective:900px}
+  .stat{background:var(--card);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:14px;padding:16px 22px;min-width:130px;transition:transform .15s,box-shadow .25s,border-color .25s}
+  .stat:hover{border-color:var(--accent);box-shadow:0 14px 30px rgba(124,140,255,.22)}
+  .stat b{display:block;font-size:30px;font-weight:800;background:linear-gradient(120deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .stat span{font-size:12px;color:var(--muted)}
+  .scrollcue{margin-top:46px;color:var(--muted);font-size:12px;letter-spacing:.15em;text-transform:uppercase;animation:bob 2s ease-in-out infinite}
+  @keyframes bob{50%{transform:translateY(8px);opacity:.5}}
+
+  /* SECTION */
+  section{margin-top:72px}
+  .seclabel{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+  .seclabel .n{font-family:ui-monospace,monospace;font-size:13px;color:var(--accent2);border:1px solid var(--line);border-radius:8px;padding:4px 9px;background:var(--bg2)}
+  .seclabel h2{font-size:26px;margin:0;font-weight:800;letter-spacing:-.01em}
+  .seclabel p{margin:0;color:var(--muted);font-size:14px}
+
+  .grid{display:grid;gap:18px}
+  .g2{grid-template-columns:1fr 1fr}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  @media(max-width:820px){.g2,.g4{grid-template-columns:1fr}}
+
+  .card{background:var(--card);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:var(--r);padding:22px;box-shadow:var(--shadow)}
+  /* 3d tilt */
+  .tilt{transform-style:preserve-3d;transition:transform .1s ease-out,box-shadow .3s,border-color .3s;will-change:transform}
+  .tilt:hover{border-color:var(--accent);box-shadow:0 26px 60px rgba(124,140,255,.2)}
+  .tilt>*{transform:translateZ(30px)}
+
+  /* TICKET FAILURE CARDS */
+  .ticket{position:relative;overflow:hidden}
+  .ticket .tag{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700}
+  .ticket h3{margin:6px 0 12px;font-size:19px}
+  .quote{border-left:3px solid var(--line);padding:8px 0 8px 14px;color:#c4cee0;font-size:14px;font-style:italic}
+  .toggle{display:flex;gap:8px;margin:16px 0 10px}
+  .toggle button{flex:1;background:var(--card2);border:1px solid var(--line);color:var(--muted);padding:9px;border-radius:10px;cursor:pointer;font-weight:700;font-size:13px;transition:.18s}
+  .toggle button:hover{transform:translateY(-2px)}
+  .toggle button.on[data-k=bad]{background:var(--badbg);border-color:var(--bad);color:var(--bad)}
+  .toggle button.on[data-k=good]{background:var(--goodbg);border-color:var(--good);color:var(--good)}
+  .respwrap{position:relative;min-height:150px}
+  .resp{font-size:14px;border-radius:12px;padding:14px;border:1px dashed var(--line);position:absolute;inset:0;transition:opacity .35s,transform .35s;backface-visibility:hidden}
+  .resp.bad{background:var(--badbg);border-color:#5a2230}
+  .resp.good{background:var(--goodbg);border-color:#1d4738}
+  .resp .lab{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;display:block;margin-bottom:8px}
+  .resp.bad .lab{color:var(--bad)} .resp.good .lab{color:var(--good)}
+  .resp.hidden{opacity:0;transform:rotateX(8deg) translateY(10px);pointer-events:none}
+
+  /* PIPELINE */
+  .flowlane{position:relative;height:34px;margin-bottom:14px;overflow:hidden;border-radius:8px;background:linear-gradient(90deg,#0e1626,#101a2e)}
+  .pkt{position:absolute;top:11px;width:12px;height:12px;border-radius:50%;background:var(--accent2);box-shadow:0 0 12px var(--accent2);left:-20px}
+  .pipe{display:flex;align-items:stretch;gap:0;flex-wrap:wrap}
+  .node{flex:1;min-width:130px;background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:14px;text-align:center;position:relative;transition:transform .3s}
+  .node:hover{transform:translateY(-4px)}
+  .node .ic{font-size:22px;display:inline-block}
+  .node b{display:block;margin-top:6px;font-size:14px}
+  .node small{color:var(--muted);font-size:11px}
+  .arrow{display:flex;align-items:center;color:var(--accent);font-size:24px;padding:0 4px;animation:pulsearrow 1.6s ease-in-out infinite}
+  @keyframes pulsearrow{50%{opacity:.3;transform:translateX(3px)}}
+  .node.broken{border-color:var(--bad);background:linear-gradient(180deg,var(--badbg),var(--card2));animation:shake 5s ease-in-out infinite}
+  @keyframes shake{0%,86%,100%{transform:translate(0,0)}88%{transform:translate(-2px,1px)}90%{transform:translate(2px,-1px)}92%{transform:translate(-2px,0)}94%{transform:translate(2px,1px)}}
+  .node.broken .x{position:absolute;top:-9px;right:-9px;background:var(--bad);color:#fff;border-radius:50%;width:24px;height:24px;display:grid;place-items:center;font-weight:800;font-size:13px;box-shadow:0 4px 12px rgba(255,93,115,.5);animation:throb 1.4s ease-in-out infinite}
+  @keyframes throb{50%{transform:scale(1.18);box-shadow:0 4px 20px rgba(255,93,115,.8)}}
+  @media(max-width:820px){.arrow{transform:rotate(90deg)}}
+
+  /* ROOT CAUSE LIST */
+  .rc{display:flex;gap:16px;padding:18px;border-radius:14px;background:var(--card);border:1px solid var(--line);margin-bottom:14px;align-items:flex-start;transition:transform .25s,border-color .25s}
+  .rc:hover{transform:translateX(6px);border-color:var(--bad)}
+  .rc .badge{flex:none;width:46px;height:46px;border-radius:12px;display:grid;place-items:center;font-size:22px;background:var(--badbg);border:1px solid #5a2230;animation:floaty 4s ease-in-out infinite}
+  @keyframes floaty{50%{transform:translateY(-6px)}}
+  .rc h4{margin:0 0 4px;font-size:16px}
+  .rc p{margin:0 0 8px;color:#c4cee0;font-size:14px}
+  .rc .ev{font-size:12.5px;color:var(--muted);background:var(--bg2);border-left:3px solid var(--accent);padding:7px 11px;border-radius:0 8px 8px 0}
+  .rc .ev b{color:var(--accent2)}
+
+  /* AGENT CARDS */
+  .agent{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px}
+  .agent .role{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--accent2);font-weight:800}
+  .agent h4{margin:6px 0 2px;font-size:18px}
+  .agent .verdict{font-size:12px;font-weight:700;margin-bottom:10px}
+  .agent .fix{font-size:14px;color:#dfe6f2;border-top:1px solid var(--line);padding-top:11px;margin-top:4px}
+  .agent .fix b{color:var(--good)}
+
+  /* TOOL COMPARE */
+  .tool{border-radius:12px;padding:16px;font-size:13px;transition:transform .25s}
+  .tool:hover{transform:scale(1.02)}
+  .tool.bad{background:var(--badbg);border:1px solid #5a2230}
+  .tool.good{background:var(--goodbg);border:1px solid #1d4738}
+  .tool .name{font-family:ui-monospace,monospace;font-weight:700;font-size:14px}
+  .tool .desc{display:block;margin-top:8px;color:#c8d2e4}
+  .tool .note{display:block;margin-top:10px;font-size:12px;color:var(--muted)}
+  .tool.bad .name{color:var(--bad)} .tool.good .name{color:var(--good)}
+
+  /* CACHE LIVE ANIM */
+  .cachesim{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:820px){.cachesim{grid-template-columns:1fr}}
+  .lane{position:relative;height:230px;border-radius:14px;border:1px solid var(--line);overflow:hidden;background:linear-gradient(180deg,#0d1524,#0a1120)}
+  .lane h5{margin:0;padding:12px 14px;font-size:13px;font-weight:700;border-bottom:1px solid var(--line)}
+  .lane.bad h5{color:var(--bad)} .lane.good h5{color:var(--good)}
+  .gate{position:absolute;top:46px;bottom:14px;left:62%;width:3px;background:repeating-linear-gradient(180deg,var(--accent) 0 8px,transparent 8px 16px)}
+  .gatelbl{position:absolute;top:48px;left:62%;transform:translateX(8px);font-size:10px;color:var(--accent2);font-family:ui-monospace,monospace}
+  .chip{position:absolute;left:-44px;width:38px;height:22px;border-radius:6px;display:grid;place-items:center;font-size:9px;font-weight:800;font-family:ui-monospace,monospace;color:#fff}
+  .meter{position:absolute;bottom:10px;left:14px;font-size:12px;font-family:ui-monospace,monospace}
+  .meter b{font-size:20px}
+  .lane.bad .meter b{color:var(--bad)} .lane.good .meter b{color:var(--good)}
+
+  /* APPROACH TILES */
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;position:relative;overflow:hidden;transition:transform .25s,border-color .25s}
+  .tile:hover{transform:translateY(-6px);border-color:var(--accent2)}
+  .tile::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;background:linear-gradient(90deg,var(--accent),var(--accent2));background-size:200% auto;animation:shimmer 4s linear infinite}
+  .tile .ic{font-size:30px;display:inline-block;animation:floaty 5s ease-in-out infinite}
+  .tile h4{margin:10px 0 4px;font-size:17px}
+  .tile .rank{position:absolute;top:14px;right:16px;font-size:11px;font-weight:800;letter-spacing:.05em}
+  .tile p{color:#c4cee0;font-size:13.5px;margin:6px 0 0}
+  .tile.dim{opacity:.55}
+  .tile.dim::before{background:var(--line);animation:none}
+  .rank.best{color:var(--good)} .rank.skip{color:var(--bad)}
+
+  /* CHECKLIST */
+  .check li{list-style:none;padding:13px 0 13px 42px;position:relative;border-bottom:1px solid var(--line);font-size:14.5px;opacity:.35;transform:translateX(-8px);transition:opacity .5s,transform .5s}
+  .check li.lit{opacity:1;transform:none}
+  .check li:before{content:"";position:absolute;left:0;top:11px;width:26px;height:26px;background:var(--card2);border:1px solid var(--line);border-radius:7px;display:grid;place-items:center;font-weight:800;font-size:14px;color:transparent;transition:.4s}
+  .check li.lit:before{content:"✓";background:var(--goodbg);border-color:var(--good);color:var(--good)}
+  .check{padding:0;margin:0}
+  .check b{color:#fff}
+
+  footer{margin-top:80px;text-align:center;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:26px}
+
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.reveal{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<div class="aurora"><i></i><i></i><i></i></div>
+<canvas id="net"></canvas>
+
+<div class="wrap">
+
+  <header class="hero">
+    <div class="kicker reveal">Meridian · Multi-Agent Support · Diagnosis & Tune-Up</div>
+    <h1 class="reveal" id="title">Why the tickets break<br>— and how to fix them</h1>
+    <p class="sub reveal">Northwind got two bad answers in a week. Neither was a model problem. Here's what the artifacts actually show, and the high-leverage moves to stop the spam.</p>
+    <div class="statbar reveal">
+      <div class="stat"><b data-count="2" data-suffix=" / 2">0</b><span>flagged tickets were structural, not model</span></div>
+      <div class="stat"><b data-count="3" data-suffix="×">0</b><span>tool calls to find one customer</span></div>
+      <div class="stat"><b data-count="0">0</b><span>cache hits in the trace</span></div>
+      <div class="stat"><b data-count="1" data-suffix=" of 2">0</b><span>issues silently dropped</span></div>
+    </div>
+    <div class="scrollcue">scroll ↓</div>
+  </header>
+
+  <!-- 1. THE FAILURES -->
+  <section>
+    <div class="seclabel reveal"><span class="n">01</span><div><h2>The two failures</h2><p>Flip each to see what the agent said vs. what it should have said.</p></div></div>
+    <div class="grid g2">
+
+      <div class="card ticket tilt reveal">
+        <span class="tag">Ticket T-4471 · high priority</span>
+        <h3>🔐 SSO down <span style="color:var(--muted)">+</span> 💸 owed a refund</h3>
+        <div class="quote">"Nobody can log in via Okta — SAML assertion failed, 40 people locked out. Separately, you charged us $2,000 for Scale but we downgraded to Growth on Feb 26. Refund the $1,200?"</div>
+        <div class="toggle" data-t="t1">
+          <button data-k="bad" class="on">What it sent ✗</button>
+          <button data-k="good">What it should send ✓</button>
+        </div>
+        <div class="respwrap">
+          <div class="resp bad" data-r="t1-bad">
+            <span class="lab">✗ Sent · marked "resolved"</span>
+            Fixed the SSO cert (great). Then: <i>"On the refund — I wasn't able to look into the March charge from here. You'll want to reach out to your account manager…"</i> Half the ticket punted back to the customer, ticket closed as resolved.
+          </div>
+          <div class="resp good hidden" data-r="t1-good">
+            <span class="lab">✓ Multi-route + escalate</span>
+            Fix SSO <b>and</b> dispatch the billing specialist: confirm the Feb 26 downgrade in the audit log, then either issue the $1,200 refund or <code>escalate_to_human(reason: customer_escalation)</code>. Close as resolved <i>only</i> when both issues are actioned.
+          </div>
+        </div>
+      </div>
+
+      <div class="card ticket tilt reveal">
+        <span class="tag">Earlier ticket · rate limiting</span>
+        <h3>🚦 "Why am I being rate limited?"</h3>
+        <div class="quote">"We're suddenly getting rate limited — what's going on?" (Real cause: their retry logic went haywire on one endpoint — visible right there in the metrics.)</div>
+        <div class="toggle" data-t="t2">
+          <button data-k="bad" class="on">What it sent ✗</button>
+          <button data-k="good">What it should send ✓</button>
+        </div>
+        <div class="respwrap">
+          <div class="resp bad" data-r="t2-bad">
+            <span class="lab">✗ Plan config, read back</span>
+            <i>"Your plan allows 10K req/min — check whether you're going over it."</i> They weren't close. The metrics tool (<code>fetch_customer_v2_databricks</code>) was never called, so the retry storm was never seen.
+          </div>
+          <div class="resp good hidden" data-r="t2-good">
+            <span class="lab">✓ Look at the actual metrics</span>
+            Pull real usage/error metrics first: <i>"Your retry logic on <code>/export</code> is firing ~14×/sec after 429s — that's the spike, not your plan limit. Add exponential backoff + jitter and it clears."</i> Specific, root-caused, fixed.
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- 2. PIPELINE -->
+  <section>
+    <div class="seclabel reveal"><span class="n">02</span><div><h2>Where it breaks in the pipeline</h2><p>Watch the tickets flow — work gets dropped at the red nodes.</p></div></div>
+    <div class="card reveal">
+      <div class="flowlane" id="flowlane"></div>
+      <div class="pipe">
+        <div class="node"><div class="ic">🎫</div><b>Ticket in</b><small>2 issues</small></div>
+        <div class="arrow">→</div>
+        <div class="node broken"><span class="x">!</span><div class="ic">🧭</div><b>Classify</b><small>picks ONE category</small></div>
+        <div class="arrow">→</div>
+        <div class="node broken"><span class="x">!</span><div class="ic">🛠️</div><b>One specialist</b><small>no billing tools</small></div>
+        <div class="arrow">→</div>
+        <div class="node broken"><span class="x">!</span><div class="ic">📝</div><b>Write response</b><small>marked "resolved"</small></div>
+        <div class="arrow">→</div>
+        <div class="node"><div class="ic">😤</div><b>Angry user</b><small>files again</small></div>
+      </div>
+      <p style="color:var(--muted);font-size:13.5px;margin:18px 0 0">Three red nodes, three independent bugs — but they compound: single-dispatch routing → specialist can't action the second issue → coordinator stamps it resolved anyway. The escalation lane (<code>escalate_to_human</code>) sits unused right next to all three.</p>
+    </div>
+  </section>
+
+  <!-- 3. ROOT CAUSES -->
+  <section>
+    <div class="seclabel reveal"><span class="n">03</span><div><h2>Four root causes, line-cited</h2><p>"The prompt seems off" isn't evidence. These point at the exact lines.</p></div></div>
+
+    <div class="rc reveal">
+      <div class="badge">🔀</div>
+      <div>
+        <h4>1 · Single-dispatch routing</h4>
+        <p>A ticket is treated as exactly one category, so multi-issue tickets structurally lose everything but the primary issue.</p>
+        <div class="ev"><b>coordinator prompt:</b> step 5 "Call spawn_specialist with <i>the right category</i>" (singular) · classifier "If a ticket could fit two categories, pick the one the customer seems <i>most blocked by</i>." The <code>spawn_specialist</code> enum takes one category, no loop.</div>
+      </div>
+    </div>
+
+    <div class="rc reveal">
+      <div class="badge">🎭</div>
+      <div>
+        <h4>2 · Over-claiming + a dead escalation path</h4>
+        <p>The specialist reported "Both issues handled" when it handled one, and the coordinator marked the ticket <code>resolved</code>. The escalation tool that exists for exactly this was never touched.</p>
+        <div class="ev"><b>account subagent trace:</b> returns "Both issues handled" → then "outside what I can action directly." · <b>coordinator tools:</b> <code>escalate_to_human</code> exists with reasons <code>security</code> / <code>customer_escalation</code> — never called. Subagents don't even have it.</div>
+      </div>
+    </div>
+
+    <div class="rc reveal">
+      <div class="badge">🏷️</div>
+      <div>
+        <h4>3 · Tool descriptions written for the backend, not the model</h4>
+        <p>The metrics tool names its <i>warehouse</i>, not its <i>use case</i> — so the model never knows to reach for it. Plus ~9 vague/duplicate tools cause decision paralysis, wrong picks, and wasted calls.</p>
+        <div class="ev"><b>coordinator tools:</b> <code>fetch_customer_v2_databricks</code> = "Queries the Databricks warehouse. v2, use this not the old one." · junk: <code>get_data</code> "Gets data", <code>helper</code> "General helper function", <code>process</code>, <code>validate</code>, <code>tool_3_v2</code>. <b>Trace burned 3 calls</b> to identify one customer.</div>
+      </div>
+    </div>
+
+    <div class="rc reveal">
+      <div class="badge">💾</div>
+      <div>
+        <h4>4 · Caching wired backwards (the "no savings")</h4>
+        <p>Volatile tokens sit at the <i>front</i> of the cached prefix, so the prefix changes every request and the cache never hits.</p>
+        <div class="ev"><b>coordinator prompt lines 1–2:</b> <code>Current timestamp: {{ }}</code> · <code>Request ID: {{ }}</code> — before the stable instructions. <b>Trace usage:</b> <code>cache_read_input_tokens: 0</code>.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. PER-AGENT ONE-LINERS -->
+  <section>
+    <div class="seclabel reveal"><span class="n">04</span><div><h2>One-liner per agent</h2><p>The tried-and-tested move for each — and why the subagents aren't actually the problem.</p></div></div>
+    <div class="grid g2">
+      <div class="agent tilt reveal">
+        <span class="role">Coordinator</span>
+        <h4>🧭 The real bottleneck</h4>
+        <div class="verdict" style="color:var(--bad)">● Needs the structural fix</div>
+        <div class="fix"><b>Classify to multiple labels and loop <code>spawn_specialist</code> until every distinct issue is actioned or escalated</b> — then add a verification gate so <code>resolved</code> requires every issue to map to a tool action.</div>
+      </div>
+      <div class="agent tilt reveal">
+        <span class="role">Account specialist</span>
+        <h4>🔐 Honest, not broader</h4>
+        <div class="verdict" style="color:var(--warn)">● Add an honesty contract</div>
+        <div class="fix"><b>"Only claim resolved what you actioned with a tool; return everything else as UNRESOLVED + next step — never invent customer-facing advice."</b> Give it <code>escalate_to_human</code>.</div>
+      </div>
+      <div class="agent tilt reveal">
+        <span class="role">Billing specialist</span>
+        <h4>💸 Never even reached</h4>
+        <div class="verdict" style="color:var(--good)">● Scope is fine</div>
+        <div class="fix">It has <code>issue_refund</code> + <code>adjust_invoice</code> — it just never got spawned. <b>Fixing the coordinator's routing fixes this one for free.</b> Add: state the refund/credit ID or escalate.</div>
+      </div>
+      <div class="agent tilt reveal">
+        <span class="role">Technical specialist</span>
+        <h4>🚦 Blind to its own metrics</h4>
+        <div class="verdict" style="color:var(--warn)">● Wrong tool placement</div>
+        <div class="fix"><b>"Check actual error/retry metrics before concluding 'within limits'"</b> — and move the stranded metrics tool off the coordinator <b>onto this agent</b>.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. TOOL DESCRIPTIONS -->
+  <section>
+    <div class="seclabel reveal"><span class="n">05</span><div><h2>Write tool descriptions for the decision</h2><p>The single highest-leverage cheap fix. Describe <i>when I'd reach for this</i>, not the plumbing.</p></div></div>
+    <div class="grid g2">
+      <div class="tool bad reveal">
+        <span class="name">fetch_customer_v2_databricks</span>
+        <span class="desc">"Queries the Databricks warehouse. v2 endpoint, use this not the old one."</span>
+        <span class="note">✗ Names the backend, not the use case. No trigger condition. Model can't tell this is the metrics tool — so it stays unused.</span>
+      </div>
+      <div class="tool good reveal">
+        <span class="name">get_usage_and_error_metrics</span>
+        <span class="desc">"Fetch a customer's real request volume, error rates, and retry behaviour per endpoint. <b>Use this whenever a customer reports rate limiting, throttling, 429s, slow responses, or a usage anomaly</b> — before quoting their plan limits."</span>
+        <span class="note">✓ Capability-named. States the trigger. Gives examples. Now it gets called.</span>
+      </div>
+    </div>
+    <p style="color:var(--muted);font-size:13.5px;margin-top:14px">Then delete the dead weight: <code>get_data</code>, <code>helper</code>, <code>process</code>, <code>validate</code>, <code>customer_data_retrieval</code>, <code>tool_3_v2</code>, and collapse <code>get_customer</code> / <code>fetch_customer_details</code> / <code>lookup_customer_info</code> into <b>one</b> well-described lookup. Fewer, sharper tools = fewer wrong picks, fewer tokens, faster resolutions.</p>
+  </section>
+
+  <!-- 6. CACHING (LIVE) -->
+  <section>
+    <div class="seclabel reveal"><span class="n">06</span><div><h2>Fix the cache: stable prefix first</h2><p>Live: same requests, two prefix orderings. Watch the hit counters.</p></div></div>
+    <div class="card reveal">
+      <div class="cachesim">
+        <div class="lane bad" id="laneBad">
+          <h5>✗ Today — volatile tokens first</h5>
+          <div class="gate"></div><div class="gatelbl">prefix differs ✗</div>
+          <div class="meter">cache hits <b id="badHits">0</b> / <span id="badTot">0</span></div>
+        </div>
+        <div class="lane good" id="laneGood">
+          <h5>✓ Reordered — stable prefix first</h5>
+          <div class="gate"></div><div class="gatelbl">prefix matches ✓</div>
+          <div class="meter">cache hits <b id="goodHits">0</b> / <span id="goodTot">0</span></div>
+        </div>
+      </div>
+      <p style="color:var(--muted);font-size:13.5px;margin-top:14px">At ~3K tickets/day with a long shared system prompt, this is real money. Move <code>timestamp</code> / <code>request_id</code> into the first user message (or the very end), and set the breakpoint after the stable instructions + tools.</p>
+    </div>
+  </section>
+
+  <!-- 7. BETTER WAYS TO WORK -->
+  <section>
+    <div class="seclabel reveal"><span class="n">07</span><div><h2>Better ways to work it</h2><p>You asked about hooks, plugins, MCP, Bluesky. Here's the honest ranking.</p></div></div>
+    <div class="grid g4">
+      <div class="tile reveal"><span class="rank best">★ BEST FIT</span><div class="ic">🔌</div><h4>MCP server</h4><p>Wrap tickets, billing, SSO & metrics as <b>one</b> MCP server with capability-named, trigger-rich tool descriptions. Kills the duplicate-tool sprawl; enforces good descriptions at the source.</p></div>
+      <div class="tile reveal"><span class="rank best">★ GUARDRAIL</span><div class="ic">🪝</div><h4>Validation hook</h4><p>A pre-<code>write_response</code> / Stop hook that <b>programmatically blocks</b> <code>resolved</code> when any ticket issue is unactioned. Don't trust the prompt to be honest — enforce it in code.</p></div>
+      <div class="tile reveal"><span class="rank">PACKAGING</span><div class="ic">📦</div><h4>Plugin</h4><p>Bundle prompts + tool defs + the hook + an eval suite into one versioned plugin, shared across all 11 customers. Fix once, ship everywhere.</p></div>
+      <div class="tile dim reveal"><span class="rank skip">✗ NOT THIS</span><div class="ic">🦋</div><h4>Bluesky</h4><p>It's a social network / AT-Protocol — no role in an internal support pipeline. Tempting name, wrong tool. Leave it out.</p></div>
+    </div>
+    <div class="card reveal" style="margin-top:18px">
+      <div style="font-weight:700;margin-bottom:6px">🔭 And the early-warning layer Priya actually wants</div>
+      <p style="color:#c4cee0;font-size:14px;margin:0">Add observability + evals: an LLM-as-judge that asks <i>"did every issue in the ticket get resolved or escalated?"</i>, and an alert that fires when a ticket is closed <code>resolved</code> with an unactioned issue. That's how "make sure these don't come back" becomes measurable instead of hopeful.</p>
+    </div>
+  </section>
+
+  <!-- 8. CHECKLIST -->
+  <section>
+    <div class="seclabel reveal"><span class="n">08</span><div><h2>The ship list</h2><p>In leverage order — lights up as you reach it.</p></div></div>
+    <div class="card reveal">
+      <ul class="check" id="shiplist">
+        <li><b>Multi-route the coordinator</b> — classify to N labels, loop dispatch until every issue is actioned or escalated.</li>
+        <li><b>Add a verification gate</b> — <code>resolved</code> only if every distinct issue maps to a tool action; else <code>needs_info</code> / <code>escalate_to_human</code>.</li>
+        <li><b>Rewrite tool descriptions for triggers</b>, rename by capability, and delete the ~9 junk/duplicate tools.</li>
+        <li><b>Give subagents an honesty contract + escalation tool</b> — never invent advice for out-of-scope work.</li>
+        <li><b>Move the metrics tool onto the technical specialist</b> and require checking real metrics before quoting limits.</li>
+        <li><b>Reorder the prompt for caching</b> — stable instructions/tools first, volatile timestamp/request_id last.</li>
+        <li><b>Stop adding single-issue examples</b> — add one multi-issue + one escalation example instead.</li>
+        <li><b>Wrap it in an MCP server + validation hook + eval harness</b> for the durable fix.</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer class="reveal">
+    Diagnosing AI Problems · Partner Basecamp Day 1 · built from <span class="mono">system prompts + tool schemas + T-4471 traces</span><br>
+    Symptom → Hypothesis → Evidence → Recommendation. The model was never the problem.
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- particle network background ---------- */
+  var cv=document.getElementById('net'),ctx=cv.getContext('2d'),W,H,pts=[];
+  function size(){W=cv.width=innerWidth;H=cv.height=innerHeight;}
+  size();addEventListener('resize',size);
+  var N=Math.min(70,Math.floor(innerWidth/22));
+  for(var i=0;i<N;i++)pts.push({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.35,vy:(Math.random()-.5)*.35});
+  var mouse={x:-999,y:-999};
+  addEventListener('mousemove',function(e){mouse.x=e.clientX;mouse.y=e.clientY;});
+  function net(){
+    ctx.clearRect(0,0,W,H);
+    for(var i=0;i<pts.length;i++){
+      var p=pts[i];p.x+=p.vx;p.y+=p.vy;
+      if(p.x<0||p.x>W)p.vx*=-1; if(p.y<0||p.y>H)p.vy*=-1;
+      ctx.beginPath();ctx.arc(p.x,p.y,1.6,0,7);ctx.fillStyle='rgba(124,140,255,.55)';ctx.fill();
+      for(var j=i+1;j<pts.length;j++){
+        var q=pts[j],dx=p.x-q.x,dy=p.y-q.y,d=dx*dx+dy*dy;
+        if(d<16000){ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);
+          ctx.strokeStyle='rgba(67,227,255,'+(.16*(1-d/16000))+')';ctx.lineWidth=1;ctx.stroke();}
+      }
+      var mdx=p.x-mouse.x,mdy=p.y-mouse.y,md=mdx*mdx+mdy*mdy;
+      if(md<24000){ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(mouse.x,mouse.y);
+        ctx.strokeStyle='rgba(124,140,255,'+(.4*(1-md/24000))+')';ctx.lineWidth=1;ctx.stroke();}
+    }
+    requestAnimationFrame(net);
+  }
+  if(!reduce) net();
+
+  /* ---------- scroll reveal ---------- */
+  var ro=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');ro.unobserve(e.target);}});},{threshold:.12});
+  document.querySelectorAll('.reveal').forEach(function(el){ro.observe(el);});
+
+  /* ---------- count-up ---------- */
+  function countUp(el){
+    var target=+el.getAttribute('data-count'),suf=el.getAttribute('data-suffix')||'',t0=null,dur=1100;
+    function step(ts){if(!t0)t0=ts;var p=Math.min((ts-t0)/dur,1);el.textContent=Math.round(target*(1-Math.pow(1-p,3)))+suf;if(p<1)requestAnimationFrame(step);}
+    requestAnimationFrame(step);
+  }
+  var co=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){countUp(e.target);co.unobserve(e.target);}});},{threshold:.5});
+  document.querySelectorAll('[data-count]').forEach(function(el){co.observe(el);});
+
+  /* ---------- 3D tilt ---------- */
+  if(!reduce) document.querySelectorAll('.tilt').forEach(function(card){
+    card.style.perspective='800px';
+    card.addEventListener('mousemove',function(e){
+      var r=card.getBoundingClientRect(),px=(e.clientX-r.left)/r.width-.5,py=(e.clientY-r.top)/r.height-.5;
+      card.style.transform='rotateY('+(px*9)+'deg) rotateX('+(-py*9)+'deg) translateZ(0)';
+    });
+    card.addEventListener('mouseleave',function(){card.style.transform='';});
+  });
+
+  /* ---------- title parallax ---------- */
+  var title=document.getElementById('title');
+  if(!reduce) addEventListener('mousemove',function(e){
+    var x=(e.clientX/innerWidth-.5),y=(e.clientY/innerHeight-.5);
+    title.style.transform='translate('+(x*14)+'px,'+(y*10)+'px)';
+  });
+
+  /* ---------- response toggles ---------- */
+  document.querySelectorAll('.toggle').forEach(function(t){
+    var key=t.getAttribute('data-t');
+    t.querySelectorAll('button').forEach(function(btn){
+      btn.addEventListener('click',function(){
+        var k=btn.getAttribute('data-k');
+        t.querySelectorAll('button').forEach(function(b){b.classList.toggle('on',b===btn);});
+        document.querySelector('[data-r="'+key+'-bad"]').classList.toggle('hidden',k!=='bad');
+        document.querySelector('[data-r="'+key+'-good"]').classList.toggle('hidden',k!=='good');
+      });
+    });
+  });
+
+  /* ---------- pipeline packets ---------- */
+  var lane=document.getElementById('flowlane');
+  if(lane && !reduce){
+    var dropAt=[0.30,0.55,0.78]; // x fractions matching the 3 broken nodes
+    function spawnPkt(){
+      var p=document.createElement('span');p.className='pkt';lane.appendChild(p);
+      var lost=Math.random()<0.6, dropX=dropAt[Math.floor(Math.random()*dropAt.length)];
+      var w=lane.clientWidth,dur=lost?(dropX*2600):2600,end=lost?dropX*w:w+20;
+      p.style.background=lost?'#ff5d73':'#3ddc97';p.style.boxShadow='0 0 12px '+(lost?'#ff5d73':'#3ddc97');
+      var t0=null;
+      function mv(ts){if(!t0)t0=ts;var pr=Math.min((ts-t0)/dur,1);
+        var x=end*pr, drop=lost&&pr>0.85?(pr-0.85)/0.15:0;
+        p.style.transform='translate('+x+'px,'+(drop*30)+'px)';p.style.opacity=lost&&pr>0.85?(1-drop):1;
+        if(pr<1)requestAnimationFrame(mv);else p.remove();
+      }
+      requestAnimationFrame(mv);
+    }
+    setInterval(spawnPkt,520);
+  }
+
+  /* ---------- cache live sim ---------- */
+  function laneSim(laneId,hitId,totId,alwaysHit){
+    var L=document.getElementById(laneId),hitsEl=document.getElementById(hitId),totEl=document.getElementById(totId),hits=0,tot=0;
+    function chip(){
+      var c=document.createElement('div');c.className='chip';
+      var y=70+Math.random()*120;c.style.top=y+'px';c.textContent='req';c.style.background='#3a4a6a';
+      L.appendChild(c);
+      var w=L.clientWidth,gate=w*0.62,t0=null;var hit=alwaysHit; // good lane hits; bad lane misses
+      function mv(ts){if(!t0)t0=ts;var p=(ts-t0)/2300,x=p*w;
+        if(x<gate){c.style.transform='translateX('+x+'px)';}
+        else{
+          if(hit){c.style.transform='translateX('+x+'px)';c.style.background='#10241d';c.textContent='HIT';c.style.color='#3ddc97';c.style.boxShadow='0 0 10px #3ddc97';}
+          else{var back=gate-(x-gate)*0.6;c.style.transform='translateX('+Math.max(back,gate-40)+'px) translateY('+((x-gate)/3)+'px)';c.style.background='#2a1620';c.textContent='MISS';c.style.color='#ff5d73';c.style.opacity=Math.max(0,1-(x-gate)/200);}
+        }
+        if(p<1.1)requestAnimationFrame(mv);else c.remove();
+      }
+      // count once when crossing gate
+      setTimeout(function(){tot++;if(hit)hits++;totEl.textContent=tot;hitsEl.textContent=hits;},2300*0.62);
+      requestAnimationFrame(mv);
+    }
+    return chip;
+  }
+  var cacheStarted=false;
+  var cacheObs=new IntersectionObserver(function(es){es.forEach(function(e){
+    if(e.isIntersecting && !cacheStarted && !reduce){
+      cacheStarted=true;
+      var bad=laneSim('laneBad','badHits','badTot',false);
+      var good=laneSim('laneGood','goodHits','goodTot',true);
+      setInterval(bad,900);setTimeout(function(){setInterval(good,900);},450);
+    }
+  });},{threshold:.4});
+  cacheObs.observe(document.getElementById('laneBad'));
+
+  /* ---------- checklist sequential light-up ---------- */
+  var list=document.getElementById('shiplist');
+  var lo=new IntersectionObserver(function(es){es.forEach(function(e){
+    if(e.isIntersecting){
+      var items=list.querySelectorAll('li');
+      items.forEach(function(li,i){setTimeout(function(){li.classList.add('lit');},i*180);});
+      lo.unobserve(list);
+    }
+  });},{threshold:.2});
+  lo.observe(list);
+})();
+</script>
+</body>
+</html>
